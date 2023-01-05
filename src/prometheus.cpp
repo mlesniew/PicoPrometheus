@@ -4,51 +4,47 @@
 
 namespace {
 
-void dump_labels(PrometheusWriter write, const PrometheusLabels & labels,
-                 const double le = std::numeric_limits<double>::quiet_NaN()) {
+size_t print_labels(Print & print, const PrometheusLabels & labels,
+                    const double le = std::numeric_limits<double>::quiet_NaN()) {
+    size_t ret = 0;
+
     if (labels.empty() && std::isnan(le)) {
-        return;
+        return ret;
     }
 
     bool first = true;
 
-    auto write_label = [&write](const std::string & label, const std::string & value, bool first) {
+    auto print_label = [&print](const std::string & label, const std::string & value, bool first) {
+        size_t ret = 0;
         if (!first) {
-            write(",");
+            ret += print.print(',');
         }
-        write(label.c_str());
-        write("=\"");
-        write(value.c_str());  // TODO: escaping?
-        write("\"");
+        ret += print.print(label.c_str());
+        ret += print.print(F("=\""));
+        ret += print.print(value.c_str());  // TODO: escaping?
+        ret += print.print('"');
+        return ret;
     };
 
-    write("{");
+    ret += print.print('{');
+
     for (const auto & lv : labels) {
         const auto & label = lv.first;
         const auto & value = lv.second;
-        write_label(label, value, first);
+        ret += print_label(label, value, first);
         first = false;
     }
 
     if (!std::isnan(le)) {
-        write_label("le", std::isinf(le) ? "+Inf" : std::to_string(le), first);
+        ret += print_label("le", std::isinf(le) ? "+Inf" : std::to_string(le), first);
     }
 
-    write("}");
+    ret += print.print('}');
+
+    return ret;
 }
 
 }
-}
-
-#ifdef ESP8266
-void PrometheusDumpable::register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri) {
-    server.on(uri, HTTP_GET, [this, &server] {
-        server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-        server.send(200, F("text/html"), F(""));
-        dump([&server](const char * buf) { server.sendContent(buf); });
-    });
-}
-#endif
 
 PrometheusMetric::PrometheusMetric(Prometheus & prometheus, const std::string & name, const std::string & help)
     : name(name), help(help), prometheus(prometheus) {
@@ -59,31 +55,37 @@ PrometheusMetric::~PrometheusMetric() {
     prometheus.metrics.erase(this);
 }
 
-void PrometheusMetric::dump(PrometheusWriter write) const {
+size_t PrometheusMetric::printTo(Print & print) const {
+    size_t ret = 0;
+
     if (metrics.empty()) {
-        return;
+        return ret;
     }
 
     // header
-    auto write_header_line = [this, write](const char * prefix, const char * value) {
-        write("# ");
-        write(prefix);
-        write(" ");
-        write(name.c_str());
-        write(" ");
-        write(value);
-        write("\n");
+    auto print_header_line = [this, &print](const __FlashStringHelper * prefix, const char * value) {
+        size_t ret = 0;
+        ret += print.print(F("# "));
+        ret += print.print(prefix);
+        ret += print.print(F(" "));
+        ret += print.print(name.c_str());
+        ret += print.print(F(" "));
+        ret += print.print(value);
+        ret += print.print(F("\n"));
+        return ret;
     };
 
-    write_header_line("HELP", help.c_str());
-    write_header_line("TYPE", get_prometheus_type_name());
+    ret += print_header_line(F("HELP"), help.c_str());
+    ret += print_header_line(F("TYPE"), get_prometheus_type_name());
 
     // metrics
     for (const auto & kv : metrics) {
         const auto & labels = kv.first;
         const auto & metric_ptr = kv.second;
-        metric_ptr->dump(write, name, labels);
+        ret += metric_ptr->printTo(print, name, labels);
     }
+
+    return ret;
 }
 
 PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
@@ -94,13 +96,15 @@ PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
     return *ptr;
 }
 
-void PrometheusSimpleMetricValue::dump(PrometheusWriter write, const std::string & name,
-                                       const PrometheusLabels & labels) const {
-    write(name.c_str());
-    dump_labels(write, labels);
-    write(" ");
-    write(std::to_string(value).c_str());
-    write("\n");
+size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & name,
+        const PrometheusLabels & labels) const {
+    size_t ret = 0;
+    ret += print.print(name.c_str());
+    ret += print_labels(print, labels);
+    ret += print.print(' ');
+    ret += print.print(std::to_string(value).c_str());
+    ret += print.print("\n");
+    return ret;
 }
 
 const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, std::numeric_limits<double>::infinity()};
@@ -122,26 +126,65 @@ void PrometheusHistogramMetricValue::observe(double value) {
     ++count;
 }
 
-void PrometheusHistogramMetricValue::dump(PrometheusWriter write, const std::string & name,
+size_t PrometheusHistogramMetricValue::printTo(Print & print, const std::string & name,
         const PrometheusLabels & labels) const {
-    auto write_line = [this, &write, &name, &labels](const char * suffix, unsigned long value,
+
+    auto print_line = [this, &print, &name, &labels](const char * suffix, unsigned long value,
     double le = std::numeric_limits<double>::quiet_NaN()) {
-        write(name.c_str());
-        write(suffix);
-        dump_labels(write, labels, le);
-        write(" ");
-        write(std::to_string(value).c_str());
-        write("\n");
+        size_t ret = 0;
+        ret += print.print(name.c_str());
+        ret += print.print(suffix);
+        ret += print_labels(print, labels, le);
+        ret += print.print(" ");
+        ret += print.print(std::to_string(value).c_str());
+        ret += print.print("\n");
+        return ret;
     };
 
-    write_line("_count", count);
+    size_t ret = 0;
+
+    ret += print_line("_count", count);
     for (const auto & kv : buckets) {
-        write_line("_bucket", kv.second, kv.first);
+        ret += print_line("_bucket", kv.second, kv.first);
     }
+
+    return ret;
 }
 
-void Prometheus::dump(PrometheusWriter write) const {
+size_t Prometheus::printTo(Print & print) const {
+    size_t ret = 0;
     for (PrometheusMetric * PrometheusMetric : metrics) {
-        PrometheusMetric->dump(write);
+        ret += PrometheusMetric->printTo(print);
     }
+    return ret;
 }
+
+#ifdef ESP8266
+void Prometheus::register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri) {
+
+    class ServerReplyPrinter: public Print {
+        public:
+            ServerReplyPrinter(ESP8266WebServer & server) : server(server) {}
+
+            size_t write(uint8_t c) override {
+                server.sendContent(reinterpret_cast<const char *>(&c), 1);
+                return 1;
+            }
+
+            size_t write(const uint8_t * buffer, size_t size) override {
+                server.sendContent(reinterpret_cast<const char *>(buffer), size);
+                return size;
+            }
+
+            ESP8266WebServer & server;
+    };
+
+    server.on(uri, HTTP_GET, [this, &server] {
+        server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+        server.send(200, F("plain/text"), F(""));
+        ServerReplyPrinter srp(server);
+        printTo(srp);
+    });
+}
+#endif
+

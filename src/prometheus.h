@@ -13,18 +13,7 @@
 #include <ESP8266WebServer.h>
 #endif
 
-using PrometheusWriter = std::function<void(const char *)>;
 using PrometheusLabels = std::map<std::string, std::string>;
-
-class PrometheusDumpable {
-    public:
-        virtual ~PrometheusDumpable() {}
-        virtual void dump(PrometheusWriter) const = 0;
-        void dump(Print & print) const;
-#ifdef ESP8266
-        void register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri = "/metrics");
-#endif
-};
 
 class Prometheus;
 class PrometheusMetric;
@@ -36,12 +25,12 @@ class PrometheusMetricValue {
         PrometheusMetricValue & operator=(const PrometheusMetricValue &) = delete;
 
     protected:
-        virtual void dump(PrometheusWriter fn, const std::string & name, const PrometheusLabels & labels) const = 0;
+        virtual size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const = 0;
 
         friend class PrometheusMetric;
 };
 
-class PrometheusMetric: public PrometheusDumpable {
+class PrometheusMetric: public Printable {
     public:
         PrometheusMetric(Prometheus & prometheus, const std::string & name, const std::string & help);
         virtual ~PrometheusMetric();
@@ -49,7 +38,7 @@ class PrometheusMetric: public PrometheusDumpable {
         PrometheusMetric(const PrometheusMetric &) = delete;
         PrometheusMetric & operator=(const PrometheusMetric &) = delete;
 
-        void dump(PrometheusWriter fn) const final;
+        size_t printTo(Print & print) const final;
 
         const std::string name;
         const std::string help;
@@ -89,7 +78,7 @@ class PrometheusSimpleMetricValue: public PrometheusMetricValue {
         PrometheusSimpleMetricValue(): value(0) {}
 
     protected:
-        void dump(PrometheusWriter fn, const std::string & name, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const override;
 
         double value;
 };
@@ -133,7 +122,7 @@ class PrometheusHistogramMetricValue: public PrometheusMetricValue {
         void observe(double value);
 
     protected:
-        void dump(PrometheusWriter fn, const std::string & name, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const override;
 
         unsigned long count;
         std::map<double, unsigned long> buckets;
@@ -157,14 +146,17 @@ class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetri
         }
 };
 
-class Prometheus: public PrometheusDumpable {
+class Prometheus: public Printable {
     public:
         Prometheus() = default;
 
         Prometheus(const Prometheus &) = delete;
         Prometheus & operator=(const Prometheus &) = delete;
 
-        void dump(PrometheusWriter write) const override;
+        size_t printTo(Print & print) const final;
+#ifdef ESP8266
+        void register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri = "/metrics");
+#endif
 
     protected:
         std::set<PrometheusMetric *> metrics;
