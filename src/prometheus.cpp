@@ -108,7 +108,7 @@ size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & n
     return ret;
 }
 
-const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, std::numeric_limits<double>::infinity()};
+const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0};
 
 PrometheusHistogramMetricValue::PrometheusHistogramMetricValue(const std::vector<double> & buckets)
     : count(0) {
@@ -124,6 +124,7 @@ void PrometheusHistogramMetricValue::observe(double value) {
             ++kv.second;
         }
     }
+    sum += value;
     ++count;
 }
 
@@ -145,6 +146,9 @@ size_t PrometheusHistogramMetricValue::printTo(Print & print, const std::string 
     size_t ret = 0;
 
     ret += print_line("_count", count);
+    ret += print_line("_bucket", count, std::numeric_limits<double>::infinity());
+    ret += print_line("_sum", sum);
+
     for (const auto & kv : buckets) {
         ret += print_line("_bucket", kv.second, kv.first);
     }

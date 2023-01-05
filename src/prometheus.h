@@ -126,6 +126,7 @@ class PrometheusHistogramMetricValue: public PrometheusMetricValue {
 
         unsigned long count;
         std::map<double, unsigned long> buckets;
+        double sum;
 };
 
 class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetricValue> {
