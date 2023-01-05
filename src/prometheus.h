@@ -124,6 +124,39 @@ class PrometheusCounter: public PrometheusTypedMetric<PrometheusCounterValue> {
         const char * get_prometheus_type_name() const override { return "counter"; }
 };
 
+class PrometheusHistogramMetricValue: public PrometheusMetricValue {
+    public:
+        static const std::vector<double> defalut_buckets;
+
+        PrometheusHistogramMetricValue(const std::vector<double> & buckets = PrometheusHistogramMetricValue::defalut_buckets);
+
+        void observe(double value);
+
+    protected:
+        void dump(PrometheusWriter fn, const std::string & name, const PrometheusLabels & labels) const override;
+
+        unsigned long count;
+        std::map<double, unsigned long> buckets;
+};
+
+class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetricValue> {
+    public:
+        PrometheusHistogram(Prometheus & prometheus, const std::string name, const std::string help,
+                            const std::vector<double> & buckets = PrometheusHistogramMetricValue::defalut_buckets)
+            : PrometheusTypedMetric<PrometheusHistogramMetricValue>(prometheus, name, help), buckets(buckets) {}
+
+        void observe(double value) { get_default_metric().observe(value); }
+
+        const std::vector<double> buckets;
+
+    protected:
+        const char * get_prometheus_type_name() const override { return "histogram"; }
+
+        std::unique_ptr<PrometheusMetricValue> construct_value() const override {
+            return std::unique_ptr<PrometheusMetricValue>(new PrometheusHistogramMetricValue(buckets));
+        }
+};
+
 class Prometheus: public PrometheusDumpable {
     public:
         Prometheus() = default;

@@ -1,7 +1,43 @@
+#include <limits>
+
 #include "prometheus.h"
 
-void PrometheusDumpable::dump(Print & print) const {
-    dump([&print](const char * str) { print.write(str); });
+namespace {
+
+void dump_labels(PrometheusWriter write, const PrometheusLabels & labels,
+                 const double le = std::numeric_limits<double>::quiet_NaN()) {
+    if (labels.empty() && std::isnan(le)) {
+        return;
+    }
+
+    bool first = true;
+
+    auto write_label = [&write](const std::string & label, const std::string & value, bool first) {
+        if (!first) {
+            write(",");
+        }
+        write(label.c_str());
+        write("=\"");
+        write(value.c_str());  // TODO: escaping?
+        write("\"");
+    };
+
+    write("{");
+    for (const auto & lv : labels) {
+        const auto & label = lv.first;
+        const auto & value = lv.second;
+        write_label(label, value, first);
+        first = false;
+    }
+
+    if (!std::isnan(le)) {
+        write_label("le", std::isinf(le) ? "+Inf" : std::to_string(le), first);
+    }
+
+    write("}");
+}
+
+}
 }
 
 #ifdef ESP8266
@@ -58,32 +94,6 @@ PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
     return *ptr;
 }
 
-namespace {
-
-void dump_labels(PrometheusWriter write, const PrometheusLabels & labels) {
-    if (labels.empty()) {
-        return;
-    }
-
-    write("{");
-    bool first = true;
-    for (const auto & lv : labels) {
-        const auto & label = lv.first;
-        const auto & value = lv.second;
-        if (!first) {
-            write(",");
-        }
-        write(label.c_str());
-        write("=\"");
-        write(value.c_str());  // TODO: escaping?
-        write("\"");
-        first = false;
-    }
-    write("}");
-}
-
-}
-
 void PrometheusSimpleMetricValue::dump(PrometheusWriter write, const std::string & name,
                                        const PrometheusLabels & labels) const {
     write(name.c_str());
@@ -91,6 +101,43 @@ void PrometheusSimpleMetricValue::dump(PrometheusWriter write, const std::string
     write(" ");
     write(std::to_string(value).c_str());
     write("\n");
+}
+
+const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, std::numeric_limits<double>::infinity()};
+
+PrometheusHistogramMetricValue::PrometheusHistogramMetricValue(const std::vector<double> & buckets)
+    : count(0) {
+    for (const auto & e : buckets) {
+        this->buckets[e] = 0;
+    }
+}
+
+void PrometheusHistogramMetricValue::observe(double value) {
+    for (auto & kv : buckets) {
+        const auto & threshold = kv.first;
+        if (value <= threshold) {
+            ++kv.second;
+        }
+    }
+    ++count;
+}
+
+void PrometheusHistogramMetricValue::dump(PrometheusWriter write, const std::string & name,
+        const PrometheusLabels & labels) const {
+    auto write_line = [this, &write, &name, &labels](const char * suffix, unsigned long value,
+    double le = std::numeric_limits<double>::quiet_NaN()) {
+        write(name.c_str());
+        write(suffix);
+        dump_labels(write, labels, le);
+        write(" ");
+        write(std::to_string(value).c_str());
+        write("\n");
+    };
+
+    write_line("_count", count);
+    for (const auto & kv : buckets) {
+        write_line("_bucket", kv.second, kv.first);
+    }
 }
 
 void Prometheus::dump(PrometheusWriter write) const {
