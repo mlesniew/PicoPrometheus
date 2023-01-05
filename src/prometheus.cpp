@@ -4,17 +4,14 @@
 
 namespace {
 
-size_t print_labels(Print & print, const PrometheusLabels & labels,
-                    const double le = std::numeric_limits<double>::quiet_NaN()) {
-    size_t ret = 0;
+size_t print_labels(Print & print, const PrometheusLabels & global_labels,
+        const PrometheusLabels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
 
-    if (labels.empty() && std::isnan(le)) {
-        return ret;
+    if (global_labels.empty() && labels.empty() && std::isnan(le)) {
+        return 0;
     }
 
-    bool first = true;
-
-    auto print_label = [&print](const std::string & label, const std::string & value, bool first) {
+    auto print_label = [&print](const std::string & label, const std::string & value, bool &first) {
         size_t ret = 0;
         if (!first) {
             ret += print.print(',');
@@ -23,16 +20,20 @@ size_t print_labels(Print & print, const PrometheusLabels & labels,
         ret += print.print(F("=\""));
         ret += print.print(value.c_str());  // TODO: escaping?
         ret += print.print('"');
+        first = false;
         return ret;
     };
 
+    size_t ret = 0;
+    bool first = true;
     ret += print.print('{');
 
+    for (const auto & lv : global_labels) {
+        ret += print_label(lv.first, lv.second, first);
+    }
+
     for (const auto & lv : labels) {
-        const auto & label = lv.first;
-        const auto & value = lv.second;
-        ret += print_label(label, value, first);
-        first = false;
+        ret += print_label(lv.first, lv.second, first);
     }
 
     if (!std::isnan(le)) {
@@ -82,7 +83,7 @@ size_t PrometheusMetric::printTo(Print & print) const {
     for (const auto & kv : metrics) {
         const auto & labels = kv.first;
         const auto & metric_ptr = kv.second;
-        ret += metric_ptr->printTo(print, name, labels);
+        ret += metric_ptr->printTo(print, name, prometheus.labels, labels);
     }
 
     return ret;
@@ -97,10 +98,10 @@ PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
 }
 
 size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & name,
-        const PrometheusLabels & labels) const {
+        const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
     size_t ret = 0;
     ret += print.print(name.c_str());
-    ret += print_labels(print, labels);
+    ret += print_labels(print, global_labels, labels);
     ret += print.print(' ');
     ret += print.print(std::to_string(value).c_str());
     ret += print.print("\n");
@@ -127,14 +128,14 @@ void PrometheusHistogramMetricValue::observe(double value) {
 }
 
 size_t PrometheusHistogramMetricValue::printTo(Print & print, const std::string & name,
-        const PrometheusLabels & labels) const {
+        const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
 
-    auto print_line = [this, &print, &name, &labels](const char * suffix, unsigned long value,
+    auto print_line = [this, &print, &name, &labels, &global_labels](const char * suffix, double value,
     double le = std::numeric_limits<double>::quiet_NaN()) {
         size_t ret = 0;
         ret += print.print(name.c_str());
         ret += print.print(suffix);
-        ret += print_labels(print, labels, le);
+        ret += print_labels(print, global_labels, labels, le);
         ret += print.print(" ");
         ret += print.print(std::to_string(value).c_str());
         ret += print.print("\n");

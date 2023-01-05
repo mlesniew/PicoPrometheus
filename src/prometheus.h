@@ -25,7 +25,7 @@ class PrometheusMetricValue {
         PrometheusMetricValue & operator=(const PrometheusMetricValue &) = delete;
 
     protected:
-        virtual size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const = 0;
+        virtual size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const = 0;
 
         friend class PrometheusMetric;
 };
@@ -78,7 +78,7 @@ class PrometheusSimpleMetricValue: public PrometheusMetricValue {
         PrometheusSimpleMetricValue(): value(0) {}
 
     protected:
-        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
 
         double value;
 };
@@ -122,7 +122,7 @@ class PrometheusHistogramMetricValue: public PrometheusMetricValue {
         void observe(double value);
 
     protected:
-        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
 
         unsigned long count;
         std::map<double, unsigned long> buckets;
@@ -148,7 +148,7 @@ class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetri
 
 class Prometheus: public Printable {
     public:
-        Prometheus() = default;
+        Prometheus(const PrometheusLabels & labels = {}): labels(labels) {}
 
         Prometheus(const Prometheus &) = delete;
         Prometheus & operator=(const Prometheus &) = delete;
@@ -157,6 +157,8 @@ class Prometheus: public Printable {
 #ifdef ESP8266
         void register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri = "/metrics");
 #endif
+
+        PrometheusLabels labels;
 
     protected:
         std::set<PrometheusMetric *> metrics;
