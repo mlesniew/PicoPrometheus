@@ -4,6 +4,22 @@
 
 namespace {
 
+std::string double_to_str(double value) {
+    if (std::isnan(value)) {
+        return "NaN";
+    } else if (!std::isfinite(value)) {
+        if (value > 0)
+            return "+Inf";
+        else
+            return "-Inf";
+    }
+
+    constexpr size_t buffer_size = std::numeric_limits<double>::max_digits10 + 1;
+    char buffer[buffer_size];
+    snprintf(buffer, buffer_size, "%g", value);
+    return buffer;
+}
+
 size_t print_labels(Print & print, const PrometheusLabels & global_labels,
         const PrometheusLabels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
 
@@ -37,7 +53,7 @@ size_t print_labels(Print & print, const PrometheusLabels & global_labels,
     }
 
     if (!std::isnan(le)) {
-        ret += print_label("le", std::isinf(le) ? "+Inf" : std::to_string(le), first);
+        ret += print_label("le", double_to_str(le), first);
     }
 
     ret += print.print('}');
@@ -103,7 +119,7 @@ size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & n
     ret += print.print(name.c_str());
     ret += print_labels(print, global_labels, labels);
     ret += print.print(' ');
-    ret += print.print(std::to_string(value).c_str());
+    ret += print.print(double_to_str(value).c_str());
     ret += print.print("\n");
     return ret;
 }
@@ -138,7 +154,7 @@ size_t PrometheusHistogramMetricValue::printTo(Print & print, const std::string 
         ret += print.print(suffix);
         ret += print_labels(print, global_labels, labels, le);
         ret += print.print(" ");
-        ret += print.print(std::to_string(value).c_str());
+        ret += print.print(double_to_str(value).c_str());
         ret += print.print("\n");
         return ret;
     };
