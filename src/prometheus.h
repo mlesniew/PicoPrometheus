@@ -40,6 +40,9 @@ class PrometheusMetric: public Printable {
 
         size_t printTo(Print & print) const final;
 
+        void remove(const PrometheusLabels & labels);
+        void clear();
+
         const std::string name;
         const std::string help;
 

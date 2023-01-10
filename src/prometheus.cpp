@@ -72,6 +72,14 @@ PrometheusMetric::~PrometheusMetric() {
     prometheus.metrics.erase(this);
 }
 
+void PrometheusMetric::remove(const PrometheusLabels & labels) {
+    metrics.erase(labels);
+}
+
+void PrometheusMetric::clear() {
+    metrics.clear();
+}
+
 size_t PrometheusMetric::printTo(Print & print) const {
     size_t ret = 0;
 
