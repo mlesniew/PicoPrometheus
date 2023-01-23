@@ -1,4 +1,4 @@
-#include <prometheus.h>
+#include <esp-prometheus.h>
 
 Prometheus prometheus;
 

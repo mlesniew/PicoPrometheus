@@ -1,7 +1,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
-#include <prometheus.h>
+#include <esp-prometheus.h>
 
 #if __has_include("config.h")
 #include "config.h"

@@ -1,4 +1,4 @@
-#include <prometheus.h>
+#include <esp-prometheus.h>
 
 // global labels can be defined during construction
 Prometheus prometheus({
