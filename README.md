@@ -1,4 +1,4 @@
-# esp-prometheus
+# PicoPrometheus
 
 A C++ library for ESP8266 that allows easy building and exporting of Prometheus metrics.
 
@@ -25,7 +25,7 @@ Here is an example of how to use the library to create and export a simple count
 ```
 #include <Arduino.h>
 #include <ESP8266WebServer.h>
-#include <prometheus.h>
+#include <PicoPrometheus.h>
 
 #define WIFI_SSID "WiFi"
 #define WIFI_PASSWORD "password"
@@ -71,4 +71,4 @@ Please feel free to contribute by opening issues and pull requests in the GitHub
 
 ## License
 
-The Prometheus C++ Library for ESP8266 is open-source software licensed under the GNU GPLv3 license.
+This library is open-source software licensed under the GNU GPLv3 license.

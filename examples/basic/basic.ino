@@ -1,4 +1,4 @@
-#include <esp-prometheus.h>
+#include <PicoPrometheus.h>
 
 Prometheus prometheus;
 

@@ -1,6 +1,6 @@
 #include <limits>
 
-#include "esp-prometheus.h"
+#include "PicoPrometheus.h"
 
 namespace {
 
