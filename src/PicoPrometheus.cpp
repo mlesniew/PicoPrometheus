@@ -135,7 +135,7 @@ size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & n
 const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0};
 
 PrometheusHistogramMetricValue::PrometheusHistogramMetricValue(const std::vector<double> & buckets)
-    : count(0) {
+    : count(0), sum(0) {
     for (const auto & e : buckets) {
         this->buckets[e] = 0;
     }
