@@ -13,7 +13,11 @@
 #include <ESP8266WebServer.h>
 #endif
 
-using PrometheusLabels = std::map<std::string, std::string>;
+class PrometheusLabels: public std::map<std::string, std::string> {
+    public:
+        using std::map<std::string, std::string>::map;
+        bool is_subset_of(const PrometheusLabels & other) const;
+};
 
 class Prometheus;
 class PrometheusMetric;
@@ -40,7 +44,7 @@ class PrometheusMetric: public Printable {
 
         size_t printTo(Print & print) const final;
 
-        void remove(const PrometheusLabels & labels);
+        void remove(const PrometheusLabels & labels, bool exact_match = true);
         void clear();
 
         const std::string name;

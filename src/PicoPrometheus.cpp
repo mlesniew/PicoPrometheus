@@ -63,6 +63,17 @@ size_t print_labels(Print & print, const PrometheusLabels & global_labels,
 
 }
 
+bool PrometheusLabels::is_subset_of(const PrometheusLabels & other) const {
+    for (auto & kv: *this) {
+        const auto it = other.find(kv.first);
+        if (it == other.end())
+            return false;
+        if (it->second != kv.second)
+            return false;
+    }
+    return true;
+}
+
 PrometheusMetric::PrometheusMetric(Prometheus & prometheus, const std::string & name, const std::string & help)
     : name(name), help(help), prometheus(prometheus) {
     prometheus.metrics.insert(this);
@@ -72,8 +83,21 @@ PrometheusMetric::~PrometheusMetric() {
     prometheus.metrics.erase(this);
 }
 
-void PrometheusMetric::remove(const PrometheusLabels & labels) {
-    metrics.erase(labels);
+void PrometheusMetric::remove(const PrometheusLabels & labels, bool exact_match) {
+    if (exact_match) {
+        metrics.erase(labels);
+    } else {
+        auto it = metrics.begin();
+
+        while (it != metrics.end()) {
+            if (labels.is_subset_of(it->first)) {
+                it = metrics.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+    }
 }
 
 void PrometheusMetric::clear() {
