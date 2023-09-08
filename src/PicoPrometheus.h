@@ -6,12 +6,10 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <Arduino.h>
 
-#ifdef ESP8266
-#include <ESP8266WebServer.h>
-#endif
 
 class PrometheusLabels: public std::map<std::string, std::string> {
     public:
@@ -154,6 +152,24 @@ class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetri
         }
 };
 
+template <typename Server>
+class ServerReplyPrinter: public Print {
+    public:
+        ServerReplyPrinter(Server & server) : server(server) {}
+
+        size_t write(uint8_t c) override {
+            server.sendContent(reinterpret_cast<const char *>(&c), 1);
+            return 1;
+        }
+
+        size_t write(const uint8_t * buffer, size_t size) override {
+            server.sendContent(reinterpret_cast<const char *>(buffer), size);
+            return size;
+        }
+
+        Server & server;
+};
+
 class Prometheus: public Printable {
     public:
         Prometheus(const PrometheusLabels & labels = {}): labels(labels) {}
@@ -162,9 +178,16 @@ class Prometheus: public Printable {
         Prometheus & operator=(const Prometheus &) = delete;
 
         size_t printTo(Print & print) const final;
-#ifdef ESP8266
-        void register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri = "/metrics");
-#endif
+
+        template <typename Server>
+        void register_metrics_endpoint(Server & server, const String & uri = "/metrics") {
+            server.on(uri, [this, &server] {
+                server.setContentLength(((size_t) -1));
+                server.send(200, F("plain/text"), F(""));
+                ServerReplyPrinter<Server> srp(server);
+                printTo(srp);
+            });
+        }
 
         PrometheusLabels labels;
 

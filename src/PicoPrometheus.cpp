@@ -112,7 +112,7 @@ size_t PrometheusMetric::printTo(Print & print) const {
     }
 
     // header
-    auto print_header_line = [this, &print](const __FlashStringHelper * prefix, const char * value) {
+    auto print_header_line = [this, &print](const char * prefix, const char * value) {
         size_t ret = 0;
         ret += print.print(F("# "));
         ret += print.print(prefix);
@@ -124,8 +124,8 @@ size_t PrometheusMetric::printTo(Print & print) const {
         return ret;
     };
 
-    ret += print_header_line(F("HELP"), help.c_str());
-    ret += print_header_line(F("TYPE"), get_prometheus_type_name());
+    ret += print_header_line("HELP", help.c_str());
+    ret += print_header_line("TYPE", get_prometheus_type_name());
 
     // metrics
     for (const auto & kv : metrics) {
@@ -211,33 +211,3 @@ size_t Prometheus::printTo(Print & print) const {
     }
     return ret;
 }
-
-#ifdef ESP8266
-void Prometheus::register_metrics_endpoint(ESP8266WebServer & server, const Uri & uri) {
-
-    class ServerReplyPrinter: public Print {
-        public:
-            ServerReplyPrinter(ESP8266WebServer & server) : server(server) {}
-
-            size_t write(uint8_t c) override {
-                server.sendContent(reinterpret_cast<const char *>(&c), 1);
-                return 1;
-            }
-
-            size_t write(const uint8_t * buffer, size_t size) override {
-                server.sendContent(reinterpret_cast<const char *>(buffer), size);
-                return size;
-            }
-
-            ESP8266WebServer & server;
-    };
-
-    server.on(uri, HTTP_GET, [this, &server] {
-        server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-        server.send(200, F("plain/text"), F(""));
-        ServerReplyPrinter srp(server);
-        printTo(srp);
-    });
-}
-#endif
-
