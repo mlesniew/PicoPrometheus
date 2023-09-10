@@ -17,14 +17,14 @@
 
 ESP8266WebServer server(80);
 
-Prometheus prometheus({
+PicoPrometheus::Registry prometheus({
     {"board", "esp8266"},
     {"example", "advanced.ino"}
 });
 
-PrometheusGauge gauge(prometheus, "example_intensity", "Color intensity");
-PrometheusCounter counter(prometheus, "example_updates", "Color intensity updates");
-PrometheusHistogram histogram(prometheus, "example_intensity_distribution", "Example histogram",
+PicoPrometheus::Gauge gauge(prometheus, "example_intensity", "Color intensity");
+PicoPrometheus::Counter counter(prometheus, "example_updates", "Color intensity updates");
+PicoPrometheus::Histogram histogram(prometheus, "example_intensity_distribution", "Example histogram",
 {64, 128, 192, std::numeric_limits<double>::infinity()});
 
 void setup() {

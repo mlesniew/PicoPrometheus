@@ -1,5 +1,4 @@
-#ifndef PROMETHEUS_H
-#define PROMETHEUS_H
+#pragma once
 
 #include <functional>
 #include <map>
@@ -10,134 +9,136 @@
 #include <Arduino.h>
 
 
-class PrometheusLabels: public std::map<String, String> {
+namespace PicoPrometheus {
+
+class Labels: public std::map<String, String> {
     public:
         using std::map<String, String>::map;
-        bool is_subset_of(const PrometheusLabels & other) const;
+        bool is_subset_of(const Labels & other) const;
 };
 
-class Prometheus;
-class PrometheusMetric;
+class Registry;
+class Metric;
 
-class PrometheusMetricValue {
+class MetricValue {
     public:
-        PrometheusMetricValue() = default;
-        PrometheusMetricValue(const PrometheusMetricValue &) = delete;
-        PrometheusMetricValue & operator=(const PrometheusMetricValue &) = delete;
+        MetricValue() = default;
+        MetricValue(const MetricValue &) = delete;
+        MetricValue & operator=(const MetricValue &) = delete;
 
     protected:
-        virtual size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const = 0;
+        virtual size_t printTo(Print & print, const String & name, const Labels & global_labels, const Labels & labels) const = 0;
 
-        friend class PrometheusMetric;
+        friend class Metric;
 };
 
-class PrometheusMetric: public Printable {
+class Metric: public Printable {
     public:
-        PrometheusMetric(Prometheus & prometheus, const String & name, const String & help);
-        virtual ~PrometheusMetric();
+        Metric(Registry & registry, const String & name, const String & help);
+        virtual ~Metric();
 
-        PrometheusMetric(const PrometheusMetric &) = delete;
-        PrometheusMetric & operator=(const PrometheusMetric &) = delete;
+        Metric(const Metric &) = delete;
+        Metric & operator=(const Metric &) = delete;
 
         size_t printTo(Print & print) const final;
 
-        void remove(const PrometheusLabels & labels, bool exact_match = true);
+        void remove(const Labels & labels, bool exact_match = true);
         void clear();
 
         const String name;
         const String help;
 
     protected:
-        PrometheusMetricValue & get(const PrometheusLabels & labels);
+        MetricValue & get(const Labels & labels);
 
-        virtual std::unique_ptr<PrometheusMetricValue> construct_value() const = 0;
+        virtual std::unique_ptr<MetricValue> construct_value() const = 0;
         virtual const char * get_prometheus_type_name() const = 0;
 
     private:
-        std::map<PrometheusLabels, std::unique_ptr<PrometheusMetricValue>> metrics;
-        Prometheus & prometheus;
+        std::map<Labels, std::unique_ptr<MetricValue>> metrics;
+        Registry & registry;
 };
 
 
 template <typename T>
-class PrometheusTypedMetric: public PrometheusMetric {
+class TypedMetric: public Metric {
     public:
-        using PrometheusMetric::PrometheusMetric;
+        using Metric::Metric;
 
-        T & operator[](const PrometheusLabels & labels) {
+        T & operator[](const Labels & labels) {
             return static_cast<T &>(get(labels));
         }
 
         T & get_default_metric() { return (*this)[ {}]; }
 
     protected:
-        std::unique_ptr<PrometheusMetricValue> construct_value() const override {
-            return std::unique_ptr<PrometheusMetricValue>(new T());
+        std::unique_ptr<MetricValue> construct_value() const override {
+            return std::unique_ptr<MetricValue>(new T());
         }
 };
 
 
-class PrometheusSimpleMetricValue: public PrometheusMetricValue {
+class SimpleMetricValue: public MetricValue {
     public:
-        PrometheusSimpleMetricValue(): value(0) {}
+        SimpleMetricValue(): value(0) {}
 
     protected:
-        size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const String & name, const Labels & global_labels, const Labels & labels) const override;
 
         double value;
 };
 
-class PrometheusGaugeValue: public PrometheusSimpleMetricValue {
+class GaugeValue: public SimpleMetricValue {
     public:
-        using PrometheusSimpleMetricValue::PrometheusSimpleMetricValue;
+        using SimpleMetricValue::SimpleMetricValue;
         void set(double value) { this->value = value; }
 };
 
-class PrometheusCounterValue: public PrometheusSimpleMetricValue {
+class CounterValue: public SimpleMetricValue {
     public:
-        using PrometheusSimpleMetricValue::PrometheusSimpleMetricValue;
+        using SimpleMetricValue::SimpleMetricValue;
         void increment(double value = 1.0) { if (value > 0.0) this->value += value; }
 };
 
-class PrometheusGauge: public PrometheusTypedMetric<PrometheusGaugeValue> {
+class Gauge: public TypedMetric<GaugeValue> {
     public:
-        using PrometheusTypedMetric<PrometheusGaugeValue>::PrometheusTypedMetric;
+        using TypedMetric<GaugeValue>::TypedMetric;
         void set(double value) { get_default_metric().set(value); }
 
     protected:
         const char * get_prometheus_type_name() const override { return "gauge"; }
 };
 
-class PrometheusCounter: public PrometheusTypedMetric<PrometheusCounterValue> {
+class Counter: public TypedMetric<CounterValue> {
     public:
-        using PrometheusTypedMetric<PrometheusCounterValue>::PrometheusTypedMetric;
+        using TypedMetric<CounterValue>::TypedMetric;
         void increment(double value = 1.0) { get_default_metric().increment(value); }
 
     protected:
         const char * get_prometheus_type_name() const override { return "counter"; }
 };
 
-class PrometheusHistogramMetricValue: public PrometheusMetricValue {
+class HistogramMetricValue: public MetricValue {
     public:
         static const std::vector<double> defalut_buckets;
 
-        PrometheusHistogramMetricValue(const std::vector<double> & buckets = PrometheusHistogramMetricValue::defalut_buckets);
+        HistogramMetricValue(const std::vector<double> & buckets = HistogramMetricValue::defalut_buckets);
 
         void observe(double value);
 
     protected:
-        size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const String & name, const Labels & global_labels, const Labels & labels) const override;
 
         unsigned long count;
         std::map<double, unsigned long> buckets;
         double sum;
 };
 
-class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetricValue> {
+class Histogram: public TypedMetric<HistogramMetricValue> {
     public:
-        PrometheusHistogram(Prometheus & prometheus, const String name, const String help,
-                            const std::vector<double> & buckets = PrometheusHistogramMetricValue::defalut_buckets)
-            : PrometheusTypedMetric<PrometheusHistogramMetricValue>(prometheus, name, help), buckets(buckets) {}
+        Histogram(Registry & registry, const String name, const String help,
+                            const std::vector<double> & buckets = HistogramMetricValue::defalut_buckets)
+            : TypedMetric<HistogramMetricValue>(registry, name, help), buckets(buckets) {}
 
         void observe(double value) { get_default_metric().observe(value); }
 
@@ -146,8 +147,8 @@ class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetri
     protected:
         const char * get_prometheus_type_name() const override { return "histogram"; }
 
-        std::unique_ptr<PrometheusMetricValue> construct_value() const override {
-            return std::unique_ptr<PrometheusMetricValue>(new PrometheusHistogramMetricValue(buckets));
+        std::unique_ptr<MetricValue> construct_value() const override {
+            return std::unique_ptr<MetricValue>(new HistogramMetricValue(buckets));
         }
 };
 
@@ -169,12 +170,12 @@ class ServerReplyPrinter: public Print {
         Server & server;
 };
 
-class Prometheus: public Printable {
+class Registry: public Printable {
     public:
-        Prometheus(const PrometheusLabels & labels = {}): labels(labels) {}
+        Registry(const Labels & labels = {}): labels(labels) {}
 
-        Prometheus(const Prometheus &) = delete;
-        Prometheus & operator=(const Prometheus &) = delete;
+        Registry(const Registry &) = delete;
+        Registry & operator=(const Registry &) = delete;
 
         size_t printTo(Print & print) const final;
 
@@ -188,12 +189,12 @@ class Prometheus: public Printable {
             });
         }
 
-        PrometheusLabels labels;
+        Labels labels;
 
     protected:
-        std::set<PrometheusMetric *> metrics;
+        std::set<Metric *> metrics;
 
-        friend class PrometheusMetric;
+        friend class Metric;
 };
 
-#endif
+}

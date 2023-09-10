@@ -1,14 +1,14 @@
 #include <PicoPrometheus.h>
 
 // global labels can be defined during construction
-Prometheus prometheus({
+PicoPrometheus::Registry prometheus({
     { "module", "esp8266" },
     { "build_date", __DATE__ },
 });
 
-PrometheusGauge gauge(prometheus, "foo", "Example gauge");
-PrometheusCounter counter(prometheus, "bar", "Example counter");
-PrometheusHistogram histogram(prometheus, "baz", "Example histogram");
+PicoPrometheus::Gauge gauge(prometheus, "foo", "Example gauge");
+PicoPrometheus::Counter counter(prometheus, "bar", "Example counter");
+PicoPrometheus::Histogram histogram(prometheus, "baz", "Example histogram");
 
 void setup() {
     Serial.begin(115200);

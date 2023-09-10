@@ -17,11 +17,11 @@
 
 ESP8266WebServer server(80);
 
-Prometheus prometheus;
+PicoPrometheus::Registry prometheus;
 
-PrometheusGauge gauge(prometheus, "foo", "Example gauge");
-PrometheusCounter counter(prometheus, "bar", "Example counter");
-PrometheusHistogram histogram(prometheus, "baz", "Example histogram");
+PicoPrometheus::Gauge gauge(prometheus, "foo", "Example gauge");
+PicoPrometheus::Counter counter(prometheus, "bar", "Example counter");
+PicoPrometheus::Histogram histogram(prometheus, "baz", "Example histogram");
 
 void setup() {
     Serial.begin(115200);

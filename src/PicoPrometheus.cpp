@@ -4,6 +4,8 @@
 
 namespace {
 
+using namespace PicoPrometheus;
+
 String double_to_str(double value) {
     if (std::isnan(value)) {
         return "NaN";
@@ -20,8 +22,8 @@ String double_to_str(double value) {
     return buffer;
 }
 
-size_t print_labels(Print & print, const PrometheusLabels & global_labels,
-        const PrometheusLabels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
+size_t print_labels(Print & print, const Labels & global_labels,
+        const Labels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
 
     if (global_labels.empty() && labels.empty() && std::isnan(le)) {
         return 0;
@@ -63,7 +65,10 @@ size_t print_labels(Print & print, const PrometheusLabels & global_labels,
 
 }
 
-bool PrometheusLabels::is_subset_of(const PrometheusLabels & other) const {
+
+namespace PicoPrometheus {
+
+bool Labels::is_subset_of(const Labels & other) const {
     for (auto & kv: *this) {
         const auto it = other.find(kv.first);
         if (it == other.end())
@@ -74,16 +79,16 @@ bool PrometheusLabels::is_subset_of(const PrometheusLabels & other) const {
     return true;
 }
 
-PrometheusMetric::PrometheusMetric(Prometheus & prometheus, const String & name, const String & help)
-    : name(name), help(help), prometheus(prometheus) {
-    prometheus.metrics.insert(this);
+Metric::Metric(Registry & registry, const String & name, const String & help)
+    : name(name), help(help), registry(registry) {
+    registry.metrics.insert(this);
 }
 
-PrometheusMetric::~PrometheusMetric() {
-    prometheus.metrics.erase(this);
+Metric::~Metric() {
+    registry.metrics.erase(this);
 }
 
-void PrometheusMetric::remove(const PrometheusLabels & labels, bool exact_match) {
+void Metric::remove(const Labels & labels, bool exact_match) {
     if (exact_match) {
         metrics.erase(labels);
     } else {
@@ -100,11 +105,11 @@ void PrometheusMetric::remove(const PrometheusLabels & labels, bool exact_match)
     }
 }
 
-void PrometheusMetric::clear() {
+void Metric::clear() {
     metrics.clear();
 }
 
-size_t PrometheusMetric::printTo(Print & print) const {
+size_t Metric::printTo(Print & print) const {
     size_t ret = 0;
 
     if (metrics.empty()) {
@@ -131,13 +136,13 @@ size_t PrometheusMetric::printTo(Print & print) const {
     for (const auto & kv : metrics) {
         const auto & labels = kv.first;
         const auto & metric_ptr = kv.second;
-        ret += metric_ptr->printTo(print, name, prometheus.labels, labels);
+        ret += metric_ptr->printTo(print, name, registry.labels, labels);
     }
 
     return ret;
 }
 
-PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
+MetricValue & Metric::get(const Labels & labels) {
     auto & ptr = metrics[labels];
     if (!ptr) {
         ptr = construct_value();
@@ -145,8 +150,8 @@ PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
     return *ptr;
 }
 
-size_t PrometheusSimpleMetricValue::printTo(Print & print, const String & name,
-        const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
+size_t SimpleMetricValue::printTo(Print & print, const String & name,
+        const Labels & global_labels, const Labels & labels) const {
     size_t ret = 0;
     ret += print.print(name.c_str());
     ret += print_labels(print, global_labels, labels);
@@ -156,16 +161,16 @@ size_t PrometheusSimpleMetricValue::printTo(Print & print, const String & name,
     return ret;
 }
 
-const std::vector<double> PrometheusHistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0};
+const std::vector<double> HistogramMetricValue::defalut_buckets = {.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0};
 
-PrometheusHistogramMetricValue::PrometheusHistogramMetricValue(const std::vector<double> & buckets)
+HistogramMetricValue::HistogramMetricValue(const std::vector<double> & buckets)
     : count(0), sum(0) {
     for (const auto & e : buckets) {
         this->buckets[e] = 0;
     }
 }
 
-void PrometheusHistogramMetricValue::observe(double value) {
+void HistogramMetricValue::observe(double value) {
     for (auto & kv : buckets) {
         const auto & threshold = kv.first;
         if (value <= threshold) {
@@ -176,8 +181,8 @@ void PrometheusHistogramMetricValue::observe(double value) {
     ++count;
 }
 
-size_t PrometheusHistogramMetricValue::printTo(Print & print, const String & name,
-        const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
+size_t HistogramMetricValue::printTo(Print & print, const String & name,
+        const Labels & global_labels, const Labels & labels) const {
 
     auto print_line = [this, &print, &name, &labels, &global_labels](const char * suffix, double value,
     double le = std::numeric_limits<double>::quiet_NaN()) {
@@ -204,10 +209,12 @@ size_t PrometheusHistogramMetricValue::printTo(Print & print, const String & nam
     return ret;
 }
 
-size_t Prometheus::printTo(Print & print) const {
+size_t Registry::printTo(Print & print) const {
     size_t ret = 0;
-    for (PrometheusMetric * PrometheusMetric : metrics) {
-        ret += PrometheusMetric->printTo(print);
+    for (Metric * Metric : metrics) {
+        ret += Metric->printTo(print);
     }
     return ret;
+}
+
 }
