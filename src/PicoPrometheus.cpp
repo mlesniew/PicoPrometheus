@@ -4,7 +4,7 @@
 
 namespace {
 
-std::string double_to_str(double value) {
+String double_to_str(double value) {
     if (std::isnan(value)) {
         return "NaN";
     } else if (!std::isfinite(value)) {
@@ -27,7 +27,7 @@ size_t print_labels(Print & print, const PrometheusLabels & global_labels,
         return 0;
     }
 
-    auto print_label = [&print](const std::string & label, const std::string & value, bool &first) {
+    auto print_label = [&print](const String & label, const String & value, bool &first) {
         size_t ret = 0;
         if (!first) {
             ret += print.print(',');
@@ -74,7 +74,7 @@ bool PrometheusLabels::is_subset_of(const PrometheusLabels & other) const {
     return true;
 }
 
-PrometheusMetric::PrometheusMetric(Prometheus & prometheus, const std::string & name, const std::string & help)
+PrometheusMetric::PrometheusMetric(Prometheus & prometheus, const String & name, const String & help)
     : name(name), help(help), prometheus(prometheus) {
     prometheus.metrics.insert(this);
 }
@@ -145,7 +145,7 @@ PrometheusMetricValue & PrometheusMetric::get(const PrometheusLabels & labels) {
     return *ptr;
 }
 
-size_t PrometheusSimpleMetricValue::printTo(Print & print, const std::string & name,
+size_t PrometheusSimpleMetricValue::printTo(Print & print, const String & name,
         const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
     size_t ret = 0;
     ret += print.print(name.c_str());
@@ -176,7 +176,7 @@ void PrometheusHistogramMetricValue::observe(double value) {
     ++count;
 }
 
-size_t PrometheusHistogramMetricValue::printTo(Print & print, const std::string & name,
+size_t PrometheusHistogramMetricValue::printTo(Print & print, const String & name,
         const PrometheusLabels & global_labels, const PrometheusLabels & labels) const {
 
     auto print_line = [this, &print, &name, &labels, &global_labels](const char * suffix, double value,

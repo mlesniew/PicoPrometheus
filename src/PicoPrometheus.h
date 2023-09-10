@@ -5,15 +5,14 @@
 #include <map>
 #include <memory>
 #include <set>
-#include <string>
 #include <vector>
 
 #include <Arduino.h>
 
 
-class PrometheusLabels: public std::map<std::string, std::string> {
+class PrometheusLabels: public std::map<String, String> {
     public:
-        using std::map<std::string, std::string>::map;
+        using std::map<String, String>::map;
         bool is_subset_of(const PrometheusLabels & other) const;
 };
 
@@ -27,14 +26,14 @@ class PrometheusMetricValue {
         PrometheusMetricValue & operator=(const PrometheusMetricValue &) = delete;
 
     protected:
-        virtual size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const = 0;
+        virtual size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const = 0;
 
         friend class PrometheusMetric;
 };
 
 class PrometheusMetric: public Printable {
     public:
-        PrometheusMetric(Prometheus & prometheus, const std::string & name, const std::string & help);
+        PrometheusMetric(Prometheus & prometheus, const String & name, const String & help);
         virtual ~PrometheusMetric();
 
         PrometheusMetric(const PrometheusMetric &) = delete;
@@ -45,8 +44,8 @@ class PrometheusMetric: public Printable {
         void remove(const PrometheusLabels & labels, bool exact_match = true);
         void clear();
 
-        const std::string name;
-        const std::string help;
+        const String name;
+        const String help;
 
     protected:
         PrometheusMetricValue & get(const PrometheusLabels & labels);
@@ -83,7 +82,7 @@ class PrometheusSimpleMetricValue: public PrometheusMetricValue {
         PrometheusSimpleMetricValue(): value(0) {}
 
     protected:
-        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
 
         double value;
 };
@@ -127,7 +126,7 @@ class PrometheusHistogramMetricValue: public PrometheusMetricValue {
         void observe(double value);
 
     protected:
-        size_t printTo(Print & print, const std::string & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
+        size_t printTo(Print & print, const String & name, const PrometheusLabels & global_labels, const PrometheusLabels & labels) const override;
 
         unsigned long count;
         std::map<double, unsigned long> buckets;
@@ -136,7 +135,7 @@ class PrometheusHistogramMetricValue: public PrometheusMetricValue {
 
 class PrometheusHistogram: public PrometheusTypedMetric<PrometheusHistogramMetricValue> {
     public:
-        PrometheusHistogram(Prometheus & prometheus, const std::string name, const std::string help,
+        PrometheusHistogram(Prometheus & prometheus, const String name, const String help,
                             const std::vector<double> & buckets = PrometheusHistogramMetricValue::defalut_buckets)
             : PrometheusTypedMetric<PrometheusHistogramMetricValue>(prometheus, name, help), buckets(buckets) {}
 
