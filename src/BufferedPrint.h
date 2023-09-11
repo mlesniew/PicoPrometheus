@@ -18,8 +18,9 @@ class BufferedPrint: public Print {
                 const size_t chunk_size = free_space >= remain ? remain : free_space;
                 memcpy(buffer + pos, src + written, chunk_size);
                 pos += chunk_size;
-                if (pos == buffer_size)
+                if (pos == buffer_size) {
                     flush_buffer();
+                }
                 written += chunk_size;
             }
             return written;

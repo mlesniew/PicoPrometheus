@@ -30,7 +30,8 @@ class MetricValue {
         MetricValue & operator=(const MetricValue &) = delete;
 
     protected:
-        virtual size_t printTo(Print & print, const String & name, const Labels & global_labels, const Labels & labels) const = 0;
+        virtual size_t printTo(Print & print, const String & name, const Labels & global_labels,
+                               const Labels & labels) const = 0;
 
         friend class Metric;
 };
@@ -95,11 +96,11 @@ class GaugeValue: public SimpleMetricValue {
 
         void bind(const std::function<double()> & getter) { this->getter = getter; }
 
-        template <typename T, typename = typename std::enable_if<!std::is_arithmetic<T>::value, T>::type>
-        void bind(T getter) { this->getter = [getter]{ return (double) getter(); }; }
+        template < typename T, typename = typename std::enable_if < !std::is_arithmetic<T>::value, T >::type >
+        void bind(T getter) { this->getter = [getter] { return (double) getter(); }; }
 
         template <typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
-        void bind(const T & value) { this->getter = [&value]{ return (double) value; }; }
+        void bind(const T & value) { this->getter = [&value] { return (double) value; }; }
 
     protected:
         double value;
@@ -163,7 +164,7 @@ class HistogramMetricValue: public MetricValue {
 class Histogram: public TypedMetric<HistogramMetricValue> {
     public:
         Histogram(Registry & registry, const String name, const String help,
-                            const std::vector<double> & buckets = HistogramMetricValue::defalut_buckets)
+                  const std::vector<double> & buckets = HistogramMetricValue::defalut_buckets)
             : TypedMetric<HistogramMetricValue>(registry, name, help), buckets(buckets) {}
 
         void observe(double value) { get_default_metric().observe(value); }

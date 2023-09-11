@@ -10,10 +10,11 @@ String double_to_str(double value) {
     if (std::isnan(value)) {
         return "NaN";
     } else if (!std::isfinite(value)) {
-        if (value > 0)
+        if (value > 0) {
             return "+Inf";
-        else
+        } else {
             return "-Inf";
+        }
     }
 
     constexpr size_t buffer_size = std::numeric_limits<double>::max_digits10 + 1;
@@ -23,13 +24,13 @@ String double_to_str(double value) {
 }
 
 size_t print_labels(Print & print, const Labels & global_labels,
-        const Labels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
+                    const Labels & labels, const double le = std::numeric_limits<double>::quiet_NaN()) {
 
     if (global_labels.empty() && labels.empty() && std::isnan(le)) {
         return 0;
     }
 
-    auto print_label = [&print](const String & label, const String & value, bool &first) {
+    auto print_label = [&print](const String & label, const String & value, bool & first) {
         size_t ret = 0;
         if (!first) {
             ret += print.print(',');
@@ -69,12 +70,14 @@ size_t print_labels(Print & print, const Labels & global_labels,
 namespace PicoPrometheus {
 
 bool Labels::is_subset_of(const Labels & other) const {
-    for (auto & kv: *this) {
+    for (auto & kv : *this) {
         const auto it = other.find(kv.first);
-        if (it == other.end())
+        if (it == other.end()) {
             return false;
-        if (it->second != kv.second)
+        }
+        if (it->second != kv.second) {
             return false;
+        }
     }
     return true;
 }
@@ -151,7 +154,7 @@ MetricValue & Metric::get(const Labels & labels) {
 }
 
 size_t SimpleMetricValue::printTo(Print & print, const String & name,
-        const Labels & global_labels, const Labels & labels) const {
+                                  const Labels & global_labels, const Labels & labels) const {
     size_t ret = 0;
     ret += print.print(name.c_str());
     ret += print_labels(print, global_labels, labels);
@@ -182,7 +185,7 @@ void HistogramMetricValue::observe(double value) {
 }
 
 size_t HistogramMetricValue::printTo(Print & print, const String & name,
-        const Labels & global_labels, const Labels & labels) const {
+                                     const Labels & global_labels, const Labels & labels) const {
 
     auto print_line = [this, &print, &name, &labels, &global_labels](const char * suffix, double value,
     double le = std::numeric_limits<double>::quiet_NaN()) {
