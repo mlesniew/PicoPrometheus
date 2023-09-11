@@ -8,6 +8,8 @@
 
 #include <Arduino.h>
 
+#include "BufferedPrint.h"
+
 
 namespace PicoPrometheus {
 
@@ -157,14 +159,13 @@ class ServerReplyPrinter: public Print {
     public:
         ServerReplyPrinter(Server & server) : server(server) {}
 
-        size_t write(uint8_t c) override {
-            server.sendContent(reinterpret_cast<const char *>(&c), 1);
-            return 1;
-        }
-
         size_t write(const uint8_t * buffer, size_t size) override {
             server.sendContent(reinterpret_cast<const char *>(buffer), size);
             return size;
+        }
+
+        size_t write(uint8_t c) override {
+            return write(&c, 1);
         }
 
         Server & server;
@@ -185,7 +186,8 @@ class Registry: public Printable {
                 server.setContentLength(((size_t) -1));
                 server.send(200, F("plain/text"), F(""));
                 ServerReplyPrinter<Server> srp(server);
-                printTo(srp);
+                BufferedPrint<1024> bp(srp);
+                printTo(bp);
             });
         }
 
@@ -193,7 +195,6 @@ class Registry: public Printable {
 
     protected:
         std::set<Metric *> metrics;
-
         friend class Metric;
 };
 
