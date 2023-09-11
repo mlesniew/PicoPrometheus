@@ -3,6 +3,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <vector>
 
@@ -201,7 +202,7 @@ class Registry: public Printable {
         Registry(const Registry &) = delete;
         Registry & operator=(const Registry &) = delete;
 
-        size_t printTo(Print & print) const final;
+        size_t printTo(Print & print) const override;
 
         template <typename Server>
         void register_metrics_endpoint(Server & server, const String & uri = "/metrics") {
@@ -219,6 +220,21 @@ class Registry: public Printable {
     protected:
         std::set<Metric *> metrics;
         friend class Metric;
+};
+
+template <typename LockType>
+class SynchronizedRegistry: public Registry {
+    public:
+        SynchronizedRegistry(const Labels & labels, LockType & lock): Registry(labels), lock(lock) {}
+        SynchronizedRegistry(LockType & lock): Registry(), lock(lock) {}
+
+        size_t printTo(Print & print) const override {
+            std::lock_guard<LockType> guard(lock);
+            return Registry::printTo(print);
+        }
+
+    protected:
+        LockType & lock;
 };
 
 }
