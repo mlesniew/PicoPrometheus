@@ -156,7 +156,7 @@ size_t SimpleMetricValue::printTo(Print & print, const String & name,
     ret += print.print(name.c_str());
     ret += print_labels(print, global_labels, labels);
     ret += print.print(' ');
-    ret += print.print(double_to_str(value).c_str());
+    ret += print.print(double_to_str(get_value()).c_str());
     ret += print.print("\n");
     return ret;
 }

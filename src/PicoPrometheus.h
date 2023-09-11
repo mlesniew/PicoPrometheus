@@ -79,33 +79,56 @@ class TypedMetric: public Metric {
         }
 };
 
-
 class SimpleMetricValue: public MetricValue {
-    public:
-        SimpleMetricValue(): value(0) {}
-
     protected:
         size_t printTo(Print & print, const String & name, const Labels & global_labels, const Labels & labels) const override;
-
-        double value;
+        virtual double get_value() const = 0;
 };
 
 class GaugeValue: public SimpleMetricValue {
     public:
-        using SimpleMetricValue::SimpleMetricValue;
+        GaugeValue(): value(0), getter(nullptr) {}
+        virtual double get_value() const override { return getter ? getter() : value; }
+
         void set(double value) { this->value = value; }
+
+        void bind(const std::function<double()> & getter) { this->getter = getter; }
+
+        template <typename T, typename = typename std::enable_if<!std::is_arithmetic<T>::value, T>::type>
+        void bind(T getter) { this->getter = [getter]{ return (double) getter(); }; }
+
+        template <typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+        void bind(const T & value) { this->getter = [&value]{ return (double) value; }; }
+
+    protected:
+        double value;
+        std::function<double()> getter;
 };
 
 class CounterValue: public SimpleMetricValue {
     public:
-        using SimpleMetricValue::SimpleMetricValue;
+        CounterValue(): value(0) {}
         void increment(double value = 1.0) { if (value > 0.0) this->value += value; }
+        virtual double get_value() const override { return value; }
+
+    protected:
+        double value;
 };
 
 class Gauge: public TypedMetric<GaugeValue> {
     public:
         using TypedMetric<GaugeValue>::TypedMetric;
+
+        template <typename T>
+        Gauge(Registry & registry, const String & name, const String & help, T v)
+            : Gauge(registry, name, help) {
+            bind(v);
+        }
+
         void set(double value) { get_default_metric().set(value); }
+
+        template <typename T>
+        void bind(T v) { get_default_metric().bind(v); }
 
     protected:
         const char * get_prometheus_type_name() const override { return "gauge"; }
